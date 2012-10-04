@@ -11,31 +11,38 @@ void send_str(const char*s);
 
 int main(void)
 {
-    DDRF = (1 << 7);
-    ADCSRA = (1 << 7) | (1 << 6) | (1 << 5) | (1 << 2) | (1 << 1);
-    ADCSRA &=~(1<<0); //Set last bit to 0
-    // Setting Admux Register
-    ADMUX = (1<<5);
-    ADMUX &=~ (1<<1) | (1<<0);// Sets MUX to use ADC0
-    uint8_t status;
-    status = ADCH;
-    
     usb_init();
-    while(!usb_configured());
-    _delay_ms(1000);
-    
-    char buf[100];
-    uint8_t n;
-    
-    DDRB = (1 << 7);
-    TCCR0A = 0b10000011;
-    TCCR0B = 0b10000011;
-    OCR0A = 0;
-    
+    DDRF = 0xFF; //Setting in to HIGH
+    PORTF = 0x00; //Input on port PF0
+    ADMUX = 0x00; //Selecting Channel 0
+    ADMUX = ADMUX | 0x40; //Selecting Voltage reference
+    ADMUX = ADMUX | 0x20; //ADLAR = 1
+    ADCSRA = 0x07; //Clock frequency
+    ADCSRA = ADCSRA | 0x80; //Enabling ADC
+
+
     while(1)
-     {
-         _delay_ms(500);
-         sprintf(buf,"%d",status);
+    {
+        ADCSRA = ADCSRA | 0x40; //Start the conversion
+        while ((ADCSRA & 0x10) == 0); //Waiting for conversion to be completed
+
+        //status = (uint8_t)ADCH; //Reading ADCH
+        uint8_t status;
+        status = ADCH; //Reading ADCH
+        ADCSRA = ADCSRA | 0x10; //Clear flag
+    
+        uint8_t n;
+
+        while(!usb_configured());
+        _delay_ms(100);
+    
+        DDRB = (1 << 7);
+        TCCR0A = 0b10000011;
+        TCCR0B = 0b10000011;
+        OCR0A = 0;
+        _delay_ms(100);
+        unsigned char buf[100];
+        sprintf(buf,"%d",status);
 
          while(!(usb_serial_get_control() & USB_SERIAL_DTR)); /* wait */
                usb_serial_flush_input();
